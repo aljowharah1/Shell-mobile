@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>PSU Racing Dashboard</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Main Dashboard Grid -->
+        <div class="main-grid">
+            <!-- Left Panel: Track Map -->
+            <div class="left-panel">
+                <div class="track-map-container">
+                    <div id="trackMap" class="track-map"></div>
+                </div>
+            </div>
+
+            <!-- Center Panel: Speedometer -->
+            <div class="center-panel">
+                <!-- Turn Instruction Banner -->
+                <div class="turn-instruction" id="turnInstruction">
+                    <div class="turn-icon">➡️</div>
+                    <div class="turn-text">
+                        <div class="turn-direction">TURN RIGHT</div>
+                        <div class="turn-advice">Slow down for the turn</div>
+                    </div>
+                </div>
+
+                <!-- Speedometer -->
+                <div class="speedometer">
+                    <svg class="speedometer-svg" viewBox="0 0 300 300">
+                        <!-- Outer glow ring -->
+                        <defs>
+                            <linearGradient id="speedGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#ffa500;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#ff6b35;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="3.5" result="coloredBlur" />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+
+                        <!-- Outer ring -->
+                        <circle cx="150" cy="150" r="140" fill="none" stroke="url(#speedGradient)" stroke-width="4"
+                            filter="url(#glow)" opacity="0.6" />
+
+                        <!-- Speed arc background -->
+                        <circle cx="150" cy="150" r="120" fill="none" stroke="rgba(255,255,255,0.1)"
+                            stroke-width="20" />
+
+                        <!-- Speed arc (animated) -->
+                        <circle id="speedArc" cx="150" cy="150" r="120" fill="none" stroke="url(#speedGradient)"
+                            stroke-width="20" stroke-dasharray="754" stroke-dashoffset="754"
+                            transform="rotate(-90 150 150)" stroke-linecap="round" />
+
+                        <!-- Center circle background -->
+                        <circle cx="150" cy="150" r="90" fill="rgba(0,0,0,0.9)" stroke="rgba(255,107,53,0.3)"
+                            stroke-width="2" />
+
+                        <!-- Speed value -->
+                        <text x="150" y="155" text-anchor="middle" class="speed-value" id="speedValue">125</text>
+                        <text x="150" y="180" text-anchor="middle" class="speed-unit">KM/H</text>
+                    </svg>
+
+                </div>
+                <!-- Directional Helper (Top Right Overlay) -->
+                <div id="directionalHelper" class="directional-helper" style="display: none;">
+                    <svg class="arrow-svg" viewBox="0 0 100 100">
+                        <!-- Left Arrow -->
+                        <path id="arrowLeft" class="arrow-path"
+                            d="M 60 20 L 20 50 L 60 80 L 60 60 L 90 60 L 90 40 L 60 40 Z" display="none" />
+                        <!-- Right Arrow -->
+                        <path id="arrowRight" class="arrow-path"
+                            d="M 40 20 L 80 50 L 40 80 L 40 60 L 10 60 L 10 40 L 40 40 Z" display="none" />
+                        <!-- Straight Arrow -->
+                        <path id="arrowStraight" class="arrow-path"
+                            d="M 20 60 L 50 20 L 80 60 L 60 60 L 60 90 L 40 90 L 40 60 Z" display="none" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Right Panel: Battery & Stats -->
+            <div class="right-panel">
+                <!-- Lap Counter (moved from header) -->
+                <div class="lap-container">
+                    <div class="lap-section">
+                        <span class="lap-label">LAP</span>
+                        <span class="lap-number" id="currentLap">1</span>
+                        <span class="lap-total">/4</span>
+                    </div>
+                </div>
+
+                <!-- Battery Indicator -->
+                <div class="battery-container">
+
+                    <div class="battery-display">
+                        <div class="battery-icon">
+                            <div class="battery-fill" id="batteryFill"></div>
+                            <div class="battery-cap"></div>
+                        </div>
+                        <div class="battery-percentage" id="batteryPercentage">60<span class="percent-symbol">%</span>
+                        </div>
+                    </div>
+                    <div class="battery-bar-container">
+                        <div class="battery-bar" id="batteryBar"></div>
+                    </div>
+                </div>
+
+                <!-- Timer Panel -->
+                <div class="timer-panel">
+
+
+                    <!-- Main Timer Display -->
+                    <div class="timer-display" id="timerDisplay">35:00</div>
+                    <div class="timer-subtitle">Remaining Time</div>
+
+                    <!-- Start Button -->
+                    <button class="start-timer-btn" id="startTimerBtn">
+                        START TIMER
+                    </button>
+
+                    <!-- Lap Times List -->
+                    <div class="lap-times-section">
+                        <div class="lap-times-title">LAP TIMES</div>
+                        <div class="lap-times-list" id="lapTimesList">
+                            <div class="no-laps">No laps completed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/mqtt@5.0.0/dist/mqtt.min.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
