@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JM Racing Dashboard</title>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://unpkg.com/mqtt@5.0.0/dist/mqtt.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="header">
+            <div class="header-left">
+                <img src="shellLogo.png" alt="Shell Logo" class="logo">
+            </div>
+            <div class="header-center">
+                <h1 class="main-title">PSU ECO TEAM</h1>
+            </div>
+            <div class="header-right">
+                <div class="lap-counter-sleek">
+                    <span class="lap-text">LAP</span>
+                    <span class="lap-number" id="lapCounter">0/4</span>
+                </div>
+                <div class="header-buttons">
+                    <button id="testMqttBtn" class="test-btn">Test MQTT</button>
+                    <button id="resetDistanceBtn" class="reset-btn" title="Reset distance to 0">Reset Distance</button>
+                    <div class="header-buttons">
+                        <button id="startLogBtn" class="log-btn">Start Logging</button>
+                        <button id="stopLogBtn" class="log-btn" disabled>Stop & Download</button>
+                      </div>
+                      
+                </div>
+            </div>
+        </header>
+
+        <!-- View Toggle Switch -->
+        <div class="view-toggle-section">
+            <div class="toggle-container">
+                <button id="liveTelemetryBtn" class="toggle-btn active" data-view="telemetry">
+                    <span class="toggle-icon">📊</span>
+                    <span class="toggle-text">Live Telemetry</span>
+                </button>
+                <button id="graphsBtn" class="toggle-btn" data-view="graphs">
+                    <span class="toggle-icon">📈</span>
+                    <span class="toggle-text">Analytics Graphs</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Data Display -->
+        <div class="main-data-section" id="mainDataSection">
+            <div class="main-data-item efficiency-section">
+                <div class="main-data-value" id="mainEfficiency">0</div>
+                <div class="main-data-label">Efficiency</div>
+                <div class="main-data-subtitle" id="efficiencySubtitle">km/kWh</div>
+            </div>
+            <div class="main-data-item speed-section">
+                <div class="main-data-value" id="mainSpeed">0</div>
+                <div class="main-data-label">Current Speed</div>
+                <div class="main-data-subtitle" id="speedSubtitle">km/h</div>
+            </div>
+            <div class="main-data-item timer-section">
+                <div class="main-data-value" id="mainTimer">00:00</div>
+                <div class="main-data-label">Race Timer</div>
+                <div class="main-data-subtitle">35 min limit</div>
+            </div>
+        </div>
+
+        <!-- Live Telemetry View -->
+        <div class="dashboard-layout" id="telemetryView">
+            <!-- Left Side - Combined Telemetry Card -->
+            <div class="telemetry-section">
+                <!-- Combined Race Telemetry & Electrical Card -->
+                <div class="telemetry-card combined-card">
+                    <div class="card-header">
+                        <h3>Race Telemetry & Electrical</h3>
+                    </div>
+                    <div class="card-content">
+                        <!-- Row 1: Avg Speed, Remaining Time, Distance -->
+                     o   <div class="metric-row">
+                            <div class="metric-item">
+                                <div class="metric-value" id="avgSpeed">0</div>
+                                <div class="metric-unit">km/h</div>
+                                <div class="metric-label">Avg Speed</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value" id="remainingTime">35:00</div>
+                                <div class="metric-unit">min</div>
+                                <div class="metric-label">Remaining</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value" id="distanceCovered">0</div>
+                                <div class="metric-unit">km</div>
+                                <div class="metric-label">Distance</div>
+                            </div>
+                        </div>
+                        <!-- Row 2: Consumption, Voltage, Current -->
+                        <div class="metric-row">
+                            <div class="metric-item">
+                                <div class="metric-value" id="consumption">0</div>
+                                <div class="metric-unit">Wh/km</div>
+                                <div class="metric-label">Energy (Wh/km)</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value" id="voltage">0</div>
+                                <div class="metric-unit">V</div>
+                                <div class="metric-label">Voltage</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value" id="current">0</div>
+                                <div class="metric-unit">A</div>
+                                <div class="metric-label">Current</div>
+                            </div>
+                        </div>
+                        <!-- Row 3: Power, Total Energy, Efficiency -->
+                        <div class="metric-row">
+                            <div class="metric-item">
+                                <div class="metric-value" id="power">0</div>
+                                <div class="metric-unit">W</div>
+                                <div class="metric-label">Power</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value" id="totalEnergy">0</div>
+                                <div class="metric-unit">Wh</div>
+                                <div class="metric-label">Total Energy</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value" id="rpm">0</div>
+                                <div class="metric-unit">RPM</div>
+                                <div class="metric-label">RPM</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value" id="efficiency">0</div>
+                                <div class="metric-unit">km/kWh</div>
+                                <div class="metric-label">Efficiency</div>
+                            </div>
+                        </div>
+                        <!-- Row 3: GPS Coordinates (2-column layout) -->
+                        <div class="metric-row gps-row">
+                            <div class="metric-item">
+                                <div class="metric-value" id="gpsLongitude">0.000000</div>
+                                <div class="metric-unit">°</div>
+                                <div class="metric-label">GPS Longitude</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-value" id="gpsLatitude">0.000000</div>
+                                <div class="metric-unit">°</div>
+                                <div class="metric-label">GPS Latitude</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side - Location Card -->
+            <div class="location-section">
+                <div class="location-card">
+                    <div class="map-container">
+                        <div id="map" class="track-map"></div>
+                        
+                        <!-- Overlay Controls -->
+                        <div class="track-overlay" id="trackOverlay">
+                            <div class="overlay-content">
+                                <h3>Race Track Visualization</h3>
+                                <p>Loading track shape...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Graphs View -->
+        <div class="graphs-section" id="graphsView" style="display: none;">
+            <div class="graphs-header">
+                <h2>Telemetry Analysis</h2>
+                <div class="graph-controls">
+                    <button id="refreshGraphsBtn" class="graph-btn">Refresh Graphs</button>
+                    <select id="lapFilter" class="lap-selector">
+                        <option value="all">All Laps</option>
+                        <option value="0">Lap 1</option>
+                        <option value="1">Lap 2</option>
+                        <option value="2">Lap 3</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="graphs-grid">
+                <!-- Current Heat Map -->
+                <div class="graph-container">
+                    <div class="graph-title">Current Heat Map</div>
+                    <div id="currentHeatMap" class="plotly-graph"></div>
+                </div>
+                
+                <!-- Net Energy Heat Map -->
+                <div class="graph-container">
+                    <div class="graph-title">Net Energy Heat Map</div>
+                    <div id="energyHeatMap" class="plotly-graph"></div>
+                </div>
+                
+                <!-- Speed vs Distance -->
+                <div class="graph-container">
+                    <div class="graph-title">Speed vs Time</div>
+                    <div id="speedGraph" class="plotly-graph"></div>
+                </div>
+                
+                <!-- Current vs Time -->
+                <div class="graph-container">
+                    <div class="graph-title">Current vs Time</div>
+                    <div id="currentGraph" class="plotly-graph"></div>
+                </div>
+                
+                <!-- Power vs Time -->
+                <div class="graph-container">
+                    <div class="graph-title">Power vs Time</div>
+                    <div id="powerGraph" class="plotly-graph"></div>
+                </div>
+                
+                <!-- Acceleration vs Speed -->
+                <div class="graph-container">
+                    <div class="graph-title">Acceleration vs Speed</div>
+                    <div id="accelerationGraph" class="plotly-graph"></div>
+                </div>
+                <div id="trackGraph" class="plotly-graph"></div>
+<div id="currentDistGraph" class="plotly-graph"></div>
+<div id="speedDistGraph" class="plotly-graph"></div>
+<div id="accelSpeedGraph" class="plotly-graph"></div>
+
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Created for Shell Eco Marathon - 2025</p>
+        </footer>
+    </div>
+
+    <script src="scripts.js"></script>
+</body>
+</html>
