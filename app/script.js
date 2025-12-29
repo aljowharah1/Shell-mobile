@@ -14,7 +14,7 @@ const MQTT_USER = "ShellJM";
 const MQTT_PASS = "psuEcoteam1st";
 const TOPIC = "car/telemetry";
 
-const TRACK_LAP_KM = 3.7;  // Lusail short circuit
+const TRACK_LAP_KM = 1.5;  // University test track (estimated)
 const PACKET_MIN_MS = 90;   // ~11 FPS UI update rate
 const IDLE_THRESHOLD_MS = 15000; // 15 seconds idle detection
 const SPEED_MOVEMENT_THRESHOLD = 0.5; // km/h to consider "moving"
@@ -25,69 +25,71 @@ let gpsWatchId = null;
 let lastGpsPosition = null;
 let lastGpsTime = null;
 
-/* ====== QATAR LUSAIL SHORT CIRCUIT DATA ====== */
+/* ====== UNIVERSITY TEST TRACK DATA ====== */
 const LUSAIL_SHORT = {
-    center: [25.488435783, 51.450190017], // Start/Finish line
-    stopLine: [25.49187893325, 51.4508796665], // Mandatory 5s midrace stop
+    center: [24.7346, 46.6991], // Center of university test track (Mishal 29 Dec lap)
+    stopLine: [24.7346, 46.6991], // Using center as stop line placeholder
     zoom: 17,
     turns: [
-        // Turn directions REVERSED (left = right, right = left)
-        { lat: 25.492879, lon: 51.447485, name: "TURN 1", type: "right" },
-        { lat: 25.493345, lon: 51.447801, name: "TURN 2", type: "right" },
-        { lat: 25.493382, lon: 51.448345, name: "TURN 3", type: "right" },
-        { lat: 25.491656, lon: 51.451190, name: "TURN 4", type: "left" },
-        { lat: 25.491361, lon: 51.451944, name: "TURN 5", type: "right" },
-        { lat: 25.489900, lon: 51.459162, name: "TURN 6", type: "right" },
-        { lat: 25.487006, lon: 51.458766, name: "TURN 7", type: "right" },
+        // Turns can be defined later based on track analysis
     ],
     outline: [
-        [25.488720817, 51.450041667],
-        [25.489118117, 51.449772783],
-        [25.489634967, 51.4494259],
-        [25.490174433, 51.4490968],
-        [25.490778517, 51.448718667],
-        [25.491375483, 51.4483175],
-        [25.49207065, 51.447894133],
-        [25.49281835, 51.447592117],
-        [25.49332805, 51.44779815],
-        [25.493340667, 51.4485594],
-        [25.492783567, 51.4492677],
-        [25.492344683, 51.4499655],
-        [25.492093667, 51.4504178],
-        [25.491843833, 51.450869917],
-        [25.491728483, 51.451032067],
-        [25.491605533, 51.451620533],
-        [25.49126045, 51.45209375],
-        [25.4907238, 51.452599483],
-        [25.4903161, 51.4532868],
-        [25.490022133, 51.454066267],
-        [25.489953533, 51.454641933],
-        [25.489913083, 51.455323067],
-        [25.489864867, 51.4560174],
-        [25.489941783, 51.456826383],
-        [25.490047383, 51.457621017],
-        [25.4901291, 51.458597433],
-        [25.489850217, 51.4592955],
-        [25.489330333, 51.459635267],
-        [25.4888498, 51.459938433],
-        [25.48819055, 51.459881967],
-        [25.4876145, 51.459461033],
-        [25.487013117, 51.458864067],
-        [25.487152133, 51.4578886],
-        [25.487378983, 51.456626417],
-        [25.487225267, 51.455559233],
-        [25.486557067, 51.45511635],
-        [25.485987883, 51.454824083],
-        [25.485314717, 51.454472317],
-        [25.484617433, 51.45412505],
-        [25.483955633, 51.453340033],
-        [25.484620783, 51.452493867],
-        [25.485420317, 51.45201425],
-        [25.48590055, 51.451725583],
-        [25.486500183, 51.451353483],
-        [25.48733545, 51.4508152],
-        [25.487992833, 51.4504049],
-        [25.488720817, 51.450041667]
+        [24.734488, 46.699482],
+        [24.734484, 46.699486],
+        [24.734476, 46.699490],
+        [24.734459, 46.699501],
+        [24.734447, 46.699505],
+        [24.734417, 46.699516],
+        [24.734398, 46.699516],
+        [24.734362, 46.699512],
+        [24.734343, 46.699509],
+        [24.734324, 46.699505],
+        [24.734289, 46.699501],
+        [24.734274, 46.699501],
+        [24.734251, 46.699497],
+        [24.734240, 46.699497],
+        [24.734215, 46.699486],
+        [24.734135, 46.699337],
+        [24.734133, 46.699276],
+        [24.734137, 46.699245],
+        [24.734158, 46.699188],
+        [24.734173, 46.699165],
+        [24.734207, 46.699127],
+        [24.734228, 46.699112],
+        [24.734249, 46.699100],
+        [24.734293, 46.699074],
+        [24.734314, 46.699055],
+        [24.734350, 46.699005],
+        [24.734362, 46.698971],
+        [24.734381, 46.698898],
+        [24.734394, 46.698860],
+        [24.734413, 46.698822],
+        [24.734467, 46.698738],
+        [24.734505, 46.698696],
+        [24.734598, 46.698624],
+        [24.734652, 46.698601],
+        [24.734755, 46.698570],
+        [24.734808, 46.698570],
+        [24.734858, 46.698578],
+        [24.734941, 46.698620],
+        [24.734976, 46.698650],
+        [24.735022, 46.698727],
+        [24.735035, 46.698772],
+        [24.735029, 46.698860],
+        [24.735016, 46.698898],
+        [24.734978, 46.698982],
+        [24.734961, 46.699024],
+        [24.734951, 46.699066],
+        [24.734938, 46.699150],
+        [24.734943, 46.699192],
+        [24.734968, 46.699265],
+        [24.734976, 46.699299],
+        [24.734985, 46.699371],
+        [24.734991, 46.699409],
+        [24.734995, 46.699440],
+        [24.734924, 46.699482],
+        [24.734814, 46.699459],
+        [24.734488, 46.699482]
     ]
 };
 
@@ -173,28 +175,6 @@ function initMap() {
         color: '#ff6b35',
         weight: 8,
         opacity: 0.9,
-        smoothFactor: 2,
-        lineCap: 'round',
-        lineJoin: 'round'
-    }).addTo(map);
-
-    // Draw START/FINISH line section in bright green (first 3 segments of track)
-    const startFinishSegment = LUSAIL_SHORT.outline.slice(0, 3);
-    L.polyline(startFinishSegment, {
-        color: '#00ff88',
-        weight: 10,
-        opacity: 1,
-        smoothFactor: 2,
-        lineCap: 'round',
-        lineJoin: 'round'
-    }).addTo(map);
-
-    // Draw MANDATORY STOP line in red (segment 12-14, midrace)
-    const stopSegment = LUSAIL_SHORT.outline.slice(12, 15);
-    L.polyline(stopSegment, {
-        color: '#ff0000',
-        weight: 10,
-        opacity: 1,
         smoothFactor: 2,
         lineCap: 'round',
         lineJoin: 'round'
@@ -445,18 +425,12 @@ function mqttConnect() {
 
     client.on("error", err => {
         console.error("MQTT error:", err);
-        // Activate GPS fallback if MQTT fails
-        if (!gpsMode) {
-            console.warn("⚠️ MQTT connection failed - switching to GPS fallback mode");
-            activateGPSFallback();
-        }
+        // GPS fallback disabled - using MQTT data only
     });
 
     client.on("offline", () => {
-        console.warn("📡 MQTT offline - switching to GPS fallback mode");
-        if (!gpsMode) {
-            activateGPSFallback();
-        }
+        console.warn("📡 MQTT offline");
+        // GPS fallback disabled - using MQTT data only
     });
 }
 
@@ -699,8 +673,8 @@ function updateSpeedometer() {
     const speed = Math.round(state.speed);
     el.speedValue.textContent = speed;
 
-    // Update speed arc (circumference = 2πr = 754, max speed 200 km/h)
-    const maxSpeed = 200;
+    // Update speed arc (circumference = 2πr = 754, max speed 50 km/h)
+    const maxSpeed = 50;
     const percentage = Math.min(speed / maxSpeed, 1);
     const offset = 754 - (percentage * 754);
     el.speedArc.style.strokeDashoffset = offset;
