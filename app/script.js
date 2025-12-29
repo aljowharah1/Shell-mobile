@@ -15,7 +15,7 @@ const MQTT_PASS = "psuEcoteam1st";
 const TOPIC = "car/telemetry";
 
 const TRACK_LAP_KM = 1.5;  // University test track (estimated)
-const PACKET_MIN_MS = 90;   // ~11 FPS UI update rate
+const PACKET_MIN_MS = 16;   // ~60 FPS UI update rate for ultra-smooth real-time response
 const IDLE_THRESHOLD_MS = 15000; // 15 seconds idle detection
 const SPEED_MOVEMENT_THRESHOLD = 0.5; // km/h to consider "moving"
 
@@ -226,8 +226,8 @@ function addHeatMapPoint(lat, lon, current) {
         state.heatMapPoints.shift();
     }
 
-    // Update heat map every 5 points for continuous visualization
-    if (state.heatMapPoints.length % 5 === 0) {
+    // Update heat map every 2 points for smoother visualization
+    if (state.heatMapPoints.length % 2 === 0) {
         updateHeatMap();
     }
 }

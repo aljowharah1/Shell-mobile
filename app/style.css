@@ -306,6 +306,7 @@ body {
     font-weight: 900;
     fill: var(--primary-orange);
     filter: drop-shadow(0 0 15px rgba(255, 107, 53, 0.8));
+    transition: all 0.1s ease-out;
 }
 
 .speed-unit {
@@ -314,6 +315,11 @@ body {
     font-weight: 600;
     fill: var(--text-muted);
     letter-spacing: 2px;
+}
+
+/* Speedometer Arc - Smooth Animation */
+#speedArc {
+    transition: stroke-dashoffset 0.15s ease-out;
 }
 
 /* Directional Helper Overlay */
