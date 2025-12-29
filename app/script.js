@@ -27,8 +27,8 @@ let lastGpsTime = null;
 
 /* ====== UNIVERSITY TEST TRACK DATA ====== */
 const LUSAIL_SHORT = {
-    center: [24.7346, 46.6991], // Center of university test track (Mishal 29 Dec lap)
-    stopLine: [24.7346, 46.6991], // Using center as stop line placeholder
+    center: [24.734488, 46.699482], // Mishal's starting position (29 Dec lap)
+    stopLine: [24.734488, 46.699482], // Start/Stop line at Mishal's starting position
     zoom: 17,
     turns: [
         // Turns can be defined later based on track analysis
