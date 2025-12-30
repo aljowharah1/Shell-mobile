@@ -319,24 +319,34 @@ function checkLapCompletion() {
     const START_LON = LUSAIL_SHORT.center[1];
     const START_THRESHOLD = 0.0003; // ~33 meters from start line
 
-    // Calculate distance from starting point
+    // Calculate distance from starting point using Pythagorean distance
     const distFromStart = Math.sqrt(
         Math.pow(state.lat - START_LAT, 2) +
         Math.pow(state.lon - START_LON, 2)
     );
 
-    // Check if car has left the starting area
+    // Check if car has left the starting area (must go beyond threshold)
     if (!state.hasLeftStart && distFromStart > START_THRESHOLD) {
         state.hasLeftStart = true;
-        console.log(`[LAP] Car has left starting area`);
+        console.log(`[LAP] Car has left starting area (distance: ${(distFromStart * 111000).toFixed(1)}m)`);
     }
 
     // Check if car has returned to start (lap completion)
+    // IMPORTANT: Only count lap if car has left start AND returned within threshold
     if (state.hasLeftStart && distFromStart < START_THRESHOLD) {
-        // Lap completed!
+        // Calculate lap statistics
         const energyWhSinceLapStart = state.energyWhAbs - state.lapStartEnergy;
         const energyKwhSinceLapStart = energyWhSinceLapStart / 1000; // Convert Wh to kWh
         const distSinceLapStart = state.distKmAbs - state.lapStartDist;
+
+        // Minimum lap distance validation (prevents counting if car just wiggled at start)
+        const MIN_LAP_DISTANCE = 0.8; // Minimum 800 meters to count as a valid lap
+
+        if (distSinceLapStart < MIN_LAP_DISTANCE) {
+            console.log(`[LAP] Ignoring incomplete lap (only ${(distSinceLapStart * 1000).toFixed(0)}m traveled, need ${(MIN_LAP_DISTANCE * 1000).toFixed(0)}m minimum)`);
+            state.hasLeftStart = false; // Reset but don't count lap
+            return; // Exit without counting lap
+        }
 
         // Efficiency: km/kWh = Distance (km) / Energy (kWh)
         const efficiency = energyKwhSinceLapStart > 0 ? (distSinceLapStart / energyKwhSinceLapStart) : 0;
@@ -351,7 +361,7 @@ function checkLapCompletion() {
                 lap: state.currentLap,
                 efficiency: efficiency
             });
-            console.log(`[LAP] Lap ${state.currentLap} completed! Distance: ${distSinceLapStart.toFixed(2)} km, Efficiency: ${efficiency.toFixed(2)} km/kWh`);
+            console.log(`✅ [LAP ${state.currentLap}] COMPLETED! Distance: ${distSinceLapStart.toFixed(2)} km, Efficiency: ${efficiency.toFixed(2)} km/kWh`);
         } else {
             console.log(`[LAP] Lap ${state.currentLap} completed but efficiency invalid: ${efficiency.toFixed(2)} km/kWh`);
         }
