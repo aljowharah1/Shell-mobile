@@ -403,12 +403,13 @@ function mqttConnect() {
         username: MQTT_USER,
         password: MQTT_PASS,
         clean: true,
-        reconnectPeriod: 2000
+        reconnectPeriod: 2000,
+        qos: 0  // Use QoS 0 for minimal latency
     });
 
     client.on("connect", () => {
         console.log("✅ Connected to MQTT");
-        client.subscribe(TOPIC, err => {
+        client.subscribe(TOPIC, { qos: 0 }, err => {
             if (err) console.error("Subscribe error:", err);
         });
     });

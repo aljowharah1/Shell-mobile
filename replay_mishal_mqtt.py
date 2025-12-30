@@ -21,7 +21,7 @@ MQTT_TOPIC = "car/telemetry"
 CSV_FILE = "Mishal29dec01-uni.csv"
 
 # Playback speed multiplier (1.0 = real-time, 2.0 = 2x speed, 0.5 = half speed)
-PLAYBACK_SPEED = 1.0
+PLAYBACK_SPEED = 5.0
 
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
@@ -48,7 +48,7 @@ def main():
     try:
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         client.loop_start()
-        time.sleep(2)  # Wait for connection
+        time.sleep(1)  # Reduced from 2s to 1s for faster startup
     except Exception as e:
         print(f"[ERROR] Connection error: {e}")
         return
@@ -101,9 +101,9 @@ def main():
                     "consumption_wh_per_km": float(row['consumption_wh_per_km']) if row['consumption_wh_per_km'] else 0
                 }
 
-                # Publish to MQTT
+                # Publish to MQTT with QoS 0 for minimal latency
                 payload = json.dumps(telemetry)
-                result = client.publish(MQTT_TOPIC, payload, qos=1)
+                result = client.publish(MQTT_TOPIC, payload, qos=0)
 
                 # Print progress every 100 rows
                 if row_count % 100 == 0:
