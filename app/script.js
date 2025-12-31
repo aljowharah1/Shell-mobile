@@ -86,6 +86,11 @@ const state = {
     hasLeftStart: false, // Track if car has left starting area
     startPositionSet: false, // Track if we've captured the initial start position
 
+    // GPS-based distance tracking
+    gpsDistanceKm: 0, // Total distance calculated from GPS
+    lastGpsLat: null, // Last GPS latitude for distance calculation
+    lastGpsLon: null, // Last GPS longitude for distance calculation
+
     // Energy tracking
     energyWhAbs: 0,
     baseDistKm: 0,
@@ -108,6 +113,7 @@ const el = {
     speedValue: document.getElementById('speedValue'),
     speedArc: document.getElementById('speedArc'),
     currentValue: document.getElementById('currentValue'),
+    distanceValue: document.getElementById('distanceValue'),
     timerDisplay: document.getElementById('timerDisplay'),
     currentLap: document.getElementById('currentLap'),
     efficiencyList: document.getElementById('efficiencyList'),
@@ -553,6 +559,27 @@ function ingestTelemetry(data) {
     state.lon = num(data.longitude) || state.lon;
     state.lat = num(data.latitude) || state.lat;
 
+    // Calculate GPS-based distance (Haversine formula)
+    if (state.lat && state.lon) {
+        if (state.lastGpsLat !== null && state.lastGpsLon !== null) {
+            // Calculate distance from last GPS position
+            const distKm = calculateDistance(
+                state.lastGpsLat, state.lastGpsLon,
+                state.lat, state.lon
+            );
+
+            // Only add distance if movement is reasonable (< 1km between updates)
+            // This prevents GPS jumps from corrupting the total
+            if (distKm < 1) {
+                state.gpsDistanceKm += distKm;
+            }
+        }
+
+        // Update last GPS position for next calculation
+        state.lastGpsLat = state.lat;
+        state.lastGpsLon = state.lon;
+    }
+
     // Integrate energy
     if (dtH > 0 && state.power > -1e6 && state.power < 1e6) {
         state.energyWhAbs += state.power * dtH;
@@ -659,6 +686,9 @@ function updateSpeedometer() {
 
     // Update current display
     el.currentValue.textContent = Math.abs(state.current).toFixed(1);
+
+    // Update GPS distance display
+    el.distanceValue.textContent = state.gpsDistanceKm.toFixed(2);
 }
 
 function updateMap() {
