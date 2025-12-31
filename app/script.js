@@ -79,12 +79,12 @@ const state = {
     lastMovementTime: null,
 
     // Lap tracking
-    currentLap: 1,
+    currentLap: 0, // Start from lap 0
     lapStartDist: 0,
     lapStartEnergy: 0,
     lapEfficiencies: [], // Array of {lap: number, efficiency: number (Wh/km)}
     hasLeftStart: false, // Track if car has left starting area
-    startPositionSet: false, // Track if we've captured the initial start position
+    startPositionSet: false, // Track if we've captured the initial start position from first GPS data
 
     // GPS-based distance tracking
     gpsDistanceKm: 0, // Total distance calculated from GPS
@@ -114,9 +114,8 @@ const el = {
     speedArc: document.getElementById('speedArc'),
     currentValue: document.getElementById('currentValue'),
     distanceValue: document.getElementById('distanceValue'),
-    timerDisplay: document.getElementById('timerDisplay'),
+    jouleDistanceValue: document.getElementById('jouleDistanceValue'),
     currentLap: document.getElementById('currentLap'),
-    efficiencyList: document.getElementById('efficiencyList'),
     directionalHelper: document.getElementById('directionalHelper'),
     arrowLeft: document.getElementById('arrowLeft'),
     arrowRight: document.getElementById('arrowRight'),
@@ -559,6 +558,14 @@ function ingestTelemetry(data) {
     state.lon = num(data.longitude) || state.lon;
     state.lat = num(data.latitude) || state.lat;
 
+    // Set start position from first GPS data received
+    if (!state.startPositionSet && state.lat && state.lon) {
+        LUSAIL_SHORT.stopLine[0] = state.lat;
+        LUSAIL_SHORT.stopLine[1] = state.lon;
+        state.startPositionSet = true;
+        console.log(`[START] Start position set from first GPS data: [${state.lat}, ${state.lon}]`);
+    }
+
     // Calculate GPS-based distance (Haversine formula)
     if (state.lat && state.lon) {
         if (state.lastGpsLat !== null && state.lastGpsLon !== null) {
@@ -689,6 +696,9 @@ function updateSpeedometer() {
 
     // Update GPS distance display
     el.distanceValue.textContent = state.gpsDistanceKm.toFixed(2);
+
+    // Update joule meter distance display (from car's odometer data)
+    el.jouleDistanceValue.textContent = state.distKmAbs.toFixed(2);
 }
 
 function updateMap() {

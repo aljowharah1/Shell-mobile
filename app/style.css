@@ -256,6 +256,48 @@ body {
     letter-spacing: 2px;
 }
 
+/* Joule Meter Distance Container in Sidebar */
+.joule-distance-container {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    padding: 10px 14px;
+    border: 2px solid rgba(76, 175, 80, 0.4);
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.2);
+}
+
+.joule-distance-display {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+}
+
+.joule-distance-value {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #4caf50;
+    text-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
+}
+
+.joule-distance-unit {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgba(76, 175, 80, 0.8);
+    letter-spacing: 1px;
+}
+
+.joule-distance-label {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 4px;
+    letter-spacing: 2px;
+}
+
 /* Turn Instruction Banner */
 .turn-instruction {
     background: linear-gradient(135deg, rgba(255, 107, 53, 0.9), rgba(255, 140, 66, 0.9));
