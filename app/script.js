@@ -14,8 +14,8 @@ const MQTT_USER = "ShellJM";
 const MQTT_PASS = "psuEcoteam1st";
 const TOPIC = "car/telemetry";
 
-const TRACK_LAP_KM = 3.7;  // Lusail short circuit
-const PACKET_MIN_MS = 90;   // ~11 FPS UI update rate
+const TRACK_LAP_KM = 1.5;  // University test track (estimated)
+const PACKET_MIN_MS = 16;   // ~60 FPS UI update rate for ultra-smooth real-time response
 const IDLE_THRESHOLD_MS = 15000; // 15 seconds idle detection
 const SPEED_MOVEMENT_THRESHOLD = 0.5; // km/h to consider "moving"
 
@@ -25,69 +25,37 @@ let gpsWatchId = null;
 let lastGpsPosition = null;
 let lastGpsTime = null;
 
-/* ====== QATAR LUSAIL SHORT CIRCUIT DATA ====== */
+/* ====== UNIVERSITY TEST TRACK DATA ====== */
+// Accurate track extracted from Ahmed's December 24th run (1747 GPS points analyzed)
 const LUSAIL_SHORT = {
-    center: [25.488435783, 51.450190017], // Start/Finish line
-    stopLine: [25.49187893325, 51.4508796665], // Mandatory 5s midrace stop
+    center: [24.735805, 46.702122], // Track center
+    stopLine: [24.735897, 46.702587], // Start/Stop line (first position)
     zoom: 17,
-    turns: [
-        // Turn directions REVERSED (left = right, right = left)
-        { lat: 25.492879, lon: 51.447485, name: "TURN 1", type: "right" },
-        { lat: 25.493345, lon: 51.447801, name: "TURN 2", type: "right" },
-        { lat: 25.493382, lon: 51.448345, name: "TURN 3", type: "right" },
-        { lat: 25.491656, lon: 51.451190, name: "TURN 4", type: "left" },
-        { lat: 25.491361, lon: 51.451944, name: "TURN 5", type: "right" },
-        { lat: 25.489900, lon: 51.459162, name: "TURN 6", type: "right" },
-        { lat: 25.487006, lon: 51.458766, name: "TURN 7", type: "right" },
-    ],
+    turns: [],
     outline: [
-        [25.488720817, 51.450041667],
-        [25.489118117, 51.449772783],
-        [25.489634967, 51.4494259],
-        [25.490174433, 51.4490968],
-        [25.490778517, 51.448718667],
-        [25.491375483, 51.4483175],
-        [25.49207065, 51.447894133],
-        [25.49281835, 51.447592117],
-        [25.49332805, 51.44779815],
-        [25.493340667, 51.4485594],
-        [25.492783567, 51.4492677],
-        [25.492344683, 51.4499655],
-        [25.492093667, 51.4504178],
-        [25.491843833, 51.450869917],
-        [25.491728483, 51.451032067],
-        [25.491605533, 51.451620533],
-        [25.49126045, 51.45209375],
-        [25.4907238, 51.452599483],
-        [25.4903161, 51.4532868],
-        [25.490022133, 51.454066267],
-        [25.489953533, 51.454641933],
-        [25.489913083, 51.455323067],
-        [25.489864867, 51.4560174],
-        [25.489941783, 51.456826383],
-        [25.490047383, 51.457621017],
-        [25.4901291, 51.458597433],
-        [25.489850217, 51.4592955],
-        [25.489330333, 51.459635267],
-        [25.4888498, 51.459938433],
-        [25.48819055, 51.459881967],
-        [25.4876145, 51.459461033],
-        [25.487013117, 51.458864067],
-        [25.487152133, 51.4578886],
-        [25.487378983, 51.456626417],
-        [25.487225267, 51.455559233],
-        [25.486557067, 51.45511635],
-        [25.485987883, 51.454824083],
-        [25.485314717, 51.454472317],
-        [25.484617433, 51.45412505],
-        [25.483955633, 51.453340033],
-        [25.484620783, 51.452493867],
-        [25.485420317, 51.45201425],
-        [25.48590055, 51.451725583],
-        [25.486500183, 51.451353483],
-        [25.48733545, 51.4508152],
-        [25.487992833, 51.4504049],
-        [25.488720817, 51.450041667]
+        [24.735834,46.702667],[24.735846,46.70266],[24.735876,46.702641],[24.735901,46.702625],
+        [24.735935,46.70261],[24.735977,46.702591],[24.736002,46.702572],[24.736027,46.702564],
+        [24.736063,46.702534],[24.736074,46.702541],[24.736124,46.702515],[24.736137,46.702507],
+        [24.736172,46.702492],[24.736216,46.702465],[24.736242,46.702454],[24.736267,46.702427],
+        [24.736298,46.702396],[24.736313,46.702381],[24.736322,46.702358],[24.736334,46.702328],
+        [24.73634,46.70229],[24.736334,46.702251],[24.736328,46.702217],[24.736315,46.702183],
+        [24.736307,46.702145],[24.736288,46.702103],[24.73628,46.702068],[24.736263,46.702053],
+        [24.736259,46.70203],[24.736252,46.702003],[24.736229,46.701954],[24.736221,46.701927],
+        [24.736216,46.701916],[24.736202,46.701881],[24.736193,46.701851],[24.736176,46.701817],
+        [24.736176,46.701809],[24.736149,46.701763],[24.736149,46.701733],[24.736132,46.701702],
+        [24.736118,46.701656],[24.736084,46.701618],[24.736067,46.701572],[24.736053,46.70153],
+        [24.73601,46.701508],[24.735981,46.701473],[24.735941,46.701462],[24.735889,46.701454],
+        [24.735843,46.701458],[24.735806,46.701462],[24.735762,46.701462],[24.735726,46.701477],
+        [24.735693,46.701481],[24.735633,46.701481],[24.735598,46.701485],[24.735573,46.701512],
+        [24.735546,46.701519],[24.735512,46.701538],[24.735495,46.70156],[24.735464,46.701595],
+        [24.735453,46.701637],[24.735435,46.701679],[24.735418,46.701706],[24.735399,46.701748],
+        [24.735375,46.701794],[24.735348,46.701843],[24.735334,46.701885],[24.735315,46.701927],
+        [24.735306,46.701965],[24.735293,46.702007],[24.735283,46.702049],[24.735283,46.702114],
+        [24.735283,46.702156],[24.735296,46.702206],[24.735302,46.702251],[24.735319,46.702286],
+        [24.735342,46.702324],[24.735357,46.702362],[24.735384,46.702404],[24.735403,46.702431],
+        [24.735433,46.702458],[24.735466,46.702481],[24.735512,46.702503],[24.735554,46.702522],
+        [24.735596,46.702545],[24.735643,46.702572],[24.735662,46.702595],[24.735693,46.702618],
+        [24.735714,46.702637],[24.735756,46.702671],[24.735775,46.702694],[24.735798,46.702709]
     ]
 };
 
@@ -111,11 +79,17 @@ const state = {
     lastMovementTime: null,
 
     // Lap tracking
-    currentLap: 1,
+    currentLap: 0, // Start from lap 0
     lapStartDist: 0,
     lapStartEnergy: 0,
     lapEfficiencies: [], // Array of {lap: number, efficiency: number (Wh/km)}
     hasLeftStart: false, // Track if car has left starting area
+    startPositionSet: false, // Track if we've captured the initial start position from first GPS data
+
+    // GPS-based distance tracking
+    gpsDistanceKm: 0, // Total distance calculated from GPS
+    lastGpsLat: null, // Last GPS latitude for distance calculation
+    lastGpsLon: null, // Last GPS longitude for distance calculation
 
     // Energy tracking
     energyWhAbs: 0,
@@ -139,9 +113,9 @@ const el = {
     speedValue: document.getElementById('speedValue'),
     speedArc: document.getElementById('speedArc'),
     currentValue: document.getElementById('currentValue'),
-    timerDisplay: document.getElementById('timerDisplay'),
+    distanceValue: document.getElementById('distanceValue'),
+    jouleDistanceValue: document.getElementById('jouleDistanceValue'),
     currentLap: document.getElementById('currentLap'),
-    efficiencyList: document.getElementById('efficiencyList'),
     directionalHelper: document.getElementById('directionalHelper'),
     arrowLeft: document.getElementById('arrowLeft'),
     arrowRight: document.getElementById('arrowRight'),
@@ -173,28 +147,6 @@ function initMap() {
         color: '#ff6b35',
         weight: 8,
         opacity: 0.9,
-        smoothFactor: 2,
-        lineCap: 'round',
-        lineJoin: 'round'
-    }).addTo(map);
-
-    // Draw START/FINISH line section in bright green (first 3 segments of track)
-    const startFinishSegment = LUSAIL_SHORT.outline.slice(0, 3);
-    L.polyline(startFinishSegment, {
-        color: '#00ff88',
-        weight: 10,
-        opacity: 1,
-        smoothFactor: 2,
-        lineCap: 'round',
-        lineJoin: 'round'
-    }).addTo(map);
-
-    // Draw MANDATORY STOP line in red (segment 12-14, midrace)
-    const stopSegment = LUSAIL_SHORT.outline.slice(12, 15);
-    L.polyline(stopSegment, {
-        color: '#ff0000',
-        weight: 10,
-        opacity: 1,
         smoothFactor: 2,
         lineCap: 'round',
         lineJoin: 'round'
@@ -246,8 +198,8 @@ function addHeatMapPoint(lat, lon, current) {
         state.heatMapPoints.shift();
     }
 
-    // Update heat map every 5 points for continuous visualization
-    if (state.heatMapPoints.length % 5 === 0) {
+    // Update heat map every 2 points for smoother visualization
+    if (state.heatMapPoints.length % 2 === 0) {
         updateHeatMap();
     }
 }
@@ -340,7 +292,7 @@ function checkLapCompletion() {
     const LEAVE_THRESHOLD = 0.002; // ~220 meters - must go this far to count as "left"
     const RETURN_THRESHOLD = 0.0003; // ~33 meters - must be this close to count as "returned"
 
-    // Calculate distance from starting point
+    // Calculate distance from starting point using Pythagorean distance
     const distFromStart = Math.sqrt(
         Math.pow(state.lat - START_LAT, 2) +
         Math.pow(state.lon - START_LON, 2)
@@ -360,6 +312,15 @@ function checkLapCompletion() {
         const energyKwhSinceLapStart = energyWhSinceLapStart / 1000; // Convert Wh to kWh
         const distSinceLapStart = state.distKmAbs - state.lapStartDist;
 
+        // Minimum lap distance validation (prevents counting if car just wiggled at start)
+        const MIN_LAP_DISTANCE = 0.8; // Minimum 800 meters to count as a valid lap
+
+        if (distSinceLapStart < MIN_LAP_DISTANCE) {
+            console.log(`[LAP] Ignoring incomplete lap (only ${(distSinceLapStart * 1000).toFixed(0)}m traveled, need ${(MIN_LAP_DISTANCE * 1000).toFixed(0)}m minimum)`);
+            state.hasLeftStart = false; // Reset but don't count lap
+            return; // Exit without counting lap
+        }
+
         // Efficiency: km/kWh = Distance (km) / Energy (kWh)
         const efficiency = energyKwhSinceLapStart > 0 ? (distSinceLapStart / energyKwhSinceLapStart) : 0;
 
@@ -373,7 +334,7 @@ function checkLapCompletion() {
                 lap: state.currentLap,
                 efficiency: efficiency
             });
-            console.log(`[LAP] Lap ${state.currentLap} completed! Distance: ${distSinceLapStart.toFixed(2)} km, Efficiency: ${efficiency.toFixed(2)} km/kWh`);
+            console.log(`✅ [LAP ${state.currentLap}] COMPLETED! Distance: ${distSinceLapStart.toFixed(2)} km, Efficiency: ${efficiency.toFixed(2)} km/kWh`);
         } else {
             console.log(`[LAP] Lap ${state.currentLap} completed but efficiency invalid: ${efficiency.toFixed(2)} km/kWh`);
         }
@@ -425,12 +386,13 @@ function mqttConnect() {
         username: MQTT_USER,
         password: MQTT_PASS,
         clean: true,
-        reconnectPeriod: 2000
+        reconnectPeriod: 2000,
+        qos: 0  // Use QoS 0 for minimal latency
     });
 
     client.on("connect", () => {
         console.log("✅ Connected to MQTT");
-        client.subscribe(TOPIC, err => {
+        client.subscribe(TOPIC, { qos: 0 }, err => {
             if (err) console.error("Subscribe error:", err);
         });
     });
@@ -447,18 +409,12 @@ function mqttConnect() {
 
     client.on("error", err => {
         console.error("MQTT error:", err);
-        // Activate GPS fallback if MQTT fails
-        if (!gpsMode) {
-            console.warn("⚠️ MQTT connection failed - switching to GPS fallback mode");
-            activateGPSFallback();
-        }
+        // GPS fallback disabled - using MQTT data only
     });
 
     client.on("offline", () => {
-        console.warn("📡 MQTT offline - switching to GPS fallback mode");
-        if (!gpsMode) {
-            activateGPSFallback();
-        }
+        console.warn("📡 MQTT offline");
+        // GPS fallback disabled - using MQTT data only
     });
 }
 
@@ -603,6 +559,35 @@ function ingestTelemetry(data) {
     state.lon = num(data.longitude) || state.lon;
     state.lat = num(data.latitude) || state.lat;
 
+    // Set start position from first GPS data received
+    if (!state.startPositionSet && state.lat && state.lon) {
+        LUSAIL_SHORT.stopLine[0] = state.lat;
+        LUSAIL_SHORT.stopLine[1] = state.lon;
+        state.startPositionSet = true;
+        console.log(`[START] Start position set from first GPS data: [${state.lat}, ${state.lon}]`);
+    }
+
+    // Calculate GPS-based distance (Haversine formula)
+    if (state.lat && state.lon) {
+        if (state.lastGpsLat !== null && state.lastGpsLon !== null) {
+            // Calculate distance from last GPS position
+            const distKm = calculateDistance(
+                state.lastGpsLat, state.lastGpsLon,
+                state.lat, state.lon
+            );
+
+            // Only add distance if movement is reasonable (< 1km between updates)
+            // This prevents GPS jumps from corrupting the total
+            if (distKm < 1) {
+                state.gpsDistanceKm += distKm;
+            }
+        }
+
+        // Update last GPS position for next calculation
+        state.lastGpsLat = state.lat;
+        state.lastGpsLon = state.lon;
+    }
+
     // Integrate energy
     if (dtH > 0 && state.power > -1e6 && state.power < 1e6) {
         state.energyWhAbs += state.power * dtH;
@@ -709,6 +694,12 @@ function updateSpeedometer() {
 
     // Update current display
     el.currentValue.textContent = Math.abs(state.current).toFixed(1);
+
+    // Update GPS distance display
+    el.distanceValue.textContent = state.gpsDistanceKm.toFixed(2);
+
+    // Update joule meter distance display (from car's odometer data)
+    el.jouleDistanceValue.textContent = state.distKmAbs.toFixed(2);
 }
 
 function updateMap() {

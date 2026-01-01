@@ -214,6 +214,90 @@ body {
     letter-spacing: 1px;
 }
 
+/* Distance Container in Sidebar */
+.distance-container {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    padding: 10px 14px;
+    border: 2px solid rgba(228, 120, 20, 0.4);
+    box-shadow: 0 4px 20px rgba(228, 120, 20, 0.2);
+}
+
+.distance-display {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+}
+
+.distance-value {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary-orange);
+    text-shadow: 0 0 15px rgba(228, 120, 20, 0.8);
+}
+
+.distance-unit {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgba(228, 120, 20, 0.8);
+    letter-spacing: 1px;
+}
+
+.distance-label {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 4px;
+    letter-spacing: 2px;
+}
+
+/* Joule Meter Distance Container in Sidebar */
+.joule-distance-container {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    padding: 10px 14px;
+    border: 2px solid rgba(76, 175, 80, 0.4);
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.2);
+}
+
+.joule-distance-display {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+}
+
+.joule-distance-value {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #4caf50;
+    text-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
+}
+
+.joule-distance-unit {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgba(76, 175, 80, 0.8);
+    letter-spacing: 1px;
+}
+
+.joule-distance-label {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 4px;
+    letter-spacing: 2px;
+}
+
 /* Turn Instruction Banner */
 .turn-instruction {
     background: linear-gradient(135deg, rgba(255, 107, 53, 0.9), rgba(255, 140, 66, 0.9));
@@ -306,6 +390,7 @@ body {
     font-weight: 900;
     fill: var(--primary-orange);
     filter: drop-shadow(0 0 15px rgba(255, 107, 53, 0.8));
+    transition: all 0.1s ease-out;
 }
 
 .speed-unit {
@@ -314,6 +399,11 @@ body {
     font-weight: 600;
     fill: var(--text-muted);
     letter-spacing: 2px;
+}
+
+/* Speedometer Arc - Smooth Animation */
+#speedArc {
+    transition: stroke-dashoffset 0.15s ease-out;
 }
 
 /* Directional Helper Overlay */
