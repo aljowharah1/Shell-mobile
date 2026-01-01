@@ -337,7 +337,8 @@ function checkIdleState() {
 function checkLapCompletion() {
     const START_LAT = LUSAIL_SHORT.center[0];
     const START_LON = LUSAIL_SHORT.center[1];
-    const START_THRESHOLD = 0.0003; // ~33 meters from start line
+    const LEAVE_THRESHOLD = 0.002; // ~220 meters - must go this far to count as "left"
+    const RETURN_THRESHOLD = 0.0003; // ~33 meters - must be this close to count as "returned"
 
     // Calculate distance from starting point
     const distFromStart = Math.sqrt(
@@ -345,14 +346,15 @@ function checkLapCompletion() {
         Math.pow(state.lon - START_LON, 2)
     );
 
-    // Check if car has left the starting area
-    if (!state.hasLeftStart && distFromStart > START_THRESHOLD) {
+    // Check if car has left the starting area (far enough away)
+    if (!state.hasLeftStart && distFromStart > LEAVE_THRESHOLD) {
         state.hasLeftStart = true;
-        console.log(`[LAP] Car has left starting area`);
+        console.log(`[LAP] Car has left starting area (${(distFromStart * 111000).toFixed(0)}m away)`);
     }
 
     // Check if car has returned to start (lap completion)
-    if (state.hasLeftStart && distFromStart < START_THRESHOLD) {
+    // Only count if car actually left AND is now close to start
+    if (state.hasLeftStart && distFromStart < RETURN_THRESHOLD) {
         // Lap completed!
         const energyWhSinceLapStart = state.energyWhAbs - state.lapStartEnergy;
         const energyKwhSinceLapStart = energyWhSinceLapStart / 1000; // Convert Wh to kWh
@@ -699,8 +701,8 @@ function updateSpeedometer() {
     const speed = Math.round(state.speed);
     el.speedValue.textContent = speed;
 
-    // Update speed arc (circumference = 2πr = 754, max speed 200 km/h)
-    const maxSpeed = 200;
+    // Update speed arc (circumference = 2πr = 754, max speed 50 km/h)
+    const maxSpeed = 50;
     const percentage = Math.min(speed / maxSpeed, 1);
     const offset = 754 - (percentage * 754);
     el.speedArc.style.strokeDashoffset = offset;
