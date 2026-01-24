@@ -13,6 +13,7 @@ const MQTT_URL = "wss://8fac0c92ea0a49b8b56f39536ba2fd78.s1.eu.hivemq.cloud:8884
 const MQTT_USER = "ShellJM";
 const MQTT_PASS = "psuEcoteam1st";
 const TOPIC = "car/telemetry";
+const GPS_BACKUP_TOPIC = "car/phone_gps"; // Phone publishes GPS backup here
 
 const TRACK_LAP_KM = 1.5;  // University test track (estimated)
 const PACKET_MIN_MS = 16;   // ~60 FPS UI update rate for ultra-smooth real-time response
@@ -24,6 +25,7 @@ let gpsMode = false; // True when using phone GPS (offline fallback)
 let gpsWatchId = null;
 let lastGpsPosition = null;
 let lastGpsTime = null;
+let phoneGPSActive = false; // True when phone is publishing GPS backup
 
 /* ====== UNIVERSITY TEST TRACK DATA ====== */
 // Accurate track extracted from Ahmed's December 24th run (1747 GPS points analyzed)
@@ -418,6 +420,82 @@ function mqttConnect() {
     });
 }
 
+/* ====== PHONE GPS BACKUP (FOR CAR GPS FAILURE) ====== */
+function startPhoneGPSBackup() {
+    if (phoneGPSActive) return; // Already active
+    phoneGPSActive = true;
+
+    // Check if geolocation is available
+    if (!navigator.geolocation) {
+        console.error("❌ Geolocation not supported by browser");
+        return;
+    }
+
+    console.log("📱 Starting phone GPS backup - will publish to MQTT topic:", GPS_BACKUP_TOPIC);
+
+    // Start watching GPS position
+    gpsWatchId = navigator.geolocation.watchPosition(
+        publishPhoneGPS,
+        handleGPSError,
+        {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
+        }
+    );
+}
+
+function stopPhoneGPSBackup() {
+    if (!phoneGPSActive) return;
+    phoneGPSActive = false;
+
+    if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+    }
+    console.log("📱 Phone GPS backup stopped");
+}
+
+function publishPhoneGPS(position) {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    const speed = position.coords.speed; // m/s or null
+    const accuracy = position.coords.accuracy; // meters
+
+    // Convert speed to km/h
+    const speedKmh = speed !== null && speed >= 0 ? speed * 3.6 : 0;
+
+    // Create GPS backup message
+    const gpsBackup = {
+        phone_latitude: lat,
+        phone_longitude: lon,
+        phone_speed_kmh: speedKmh,
+        phone_accuracy_m: accuracy,
+        timestamp: Date.now()
+    };
+
+    // Publish to MQTT
+    if (client && client.connected) {
+        client.publish(GPS_BACKUP_TOPIC, JSON.stringify(gpsBackup), { qos: 0 }, (err) => {
+            if (err) {
+                console.error("Failed to publish phone GPS:", err);
+            } else {
+                console.log(`📍 Phone GPS: ${lat.toFixed(6)}, ${lon.toFixed(6)} (±${accuracy.toFixed(1)}m)`);
+            }
+        });
+    } else {
+        console.warn("⚠️ MQTT not connected, cannot publish phone GPS");
+    }
+
+    // Also update local state for display
+    state.lat = lat;
+    state.lon = lon;
+    state.speed = speedKmh;
+
+    // Update map and UI
+    requestFrame();
+}
+
 /* ====== GPS FALLBACK MODE ====== */
 function activateGPSFallback() {
     gpsMode = true;
@@ -556,8 +634,29 @@ function ingestTelemetry(data) {
     state.speed = num(data.speed);
     state.rpm = num(data.rpm);
     state.distKmAbs = num(data.distance_km);
-    state.lon = num(data.longitude) || state.lon;
-    state.lat = num(data.latitude) || state.lat;
+
+    // Check if car GPS is valid (not null, not 0,0)
+    const carLat = num(data.latitude);
+    const carLon = num(data.longitude);
+    const isCarGPSValid = carLat !== 0 && carLon !== 0 && Math.abs(carLat) > 0.001 && Math.abs(carLon) > 0.001;
+
+    if (isCarGPSValid) {
+        // Use car GPS (primary source)
+        state.lon = carLon;
+        state.lat = carLat;
+        // Stop phone GPS backup if it was active
+        if (phoneGPSActive) {
+            console.log("✅ Car GPS restored, stopping phone GPS backup");
+            stopPhoneGPSBackup();
+        }
+    } else {
+        // Car GPS is invalid - activate phone GPS backup
+        if (!phoneGPSActive) {
+            console.log("⚠️ Car GPS invalid (0,0 or null), activating phone GPS backup");
+            startPhoneGPSBackup();
+        }
+        // Keep using last known position until phone GPS updates
+    }
 
     // Set start position from first GPS data received
     if (!state.startPositionSet && state.lat && state.lon) {
