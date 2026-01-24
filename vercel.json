@@ -1,8 +1,10 @@
 {
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/index.html"
+      "source": "/(.*)",
+      "destination": "/app/$1"
     }
-  ]
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
 }
