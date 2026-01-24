@@ -1,14 +1,6 @@
 {
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/app/index.html"
-    },
-    {
-      "source": "/:path*",
-      "destination": "/app/:path*"
-    }
-  ],
+  "buildCommand": "echo 'No build required'",
+  "outputDirectory": "app",
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [
