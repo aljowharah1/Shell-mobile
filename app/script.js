@@ -51,6 +51,10 @@ const state = {
     lon: LUSAIL_SHORT.center[1],
     lat: LUSAIL_SHORT.center[0],
 
+    // Smooth display values (interpolated for smooth animations)
+    displaySpeed: 0,
+    displayCurrent: 0,
+
     // Timer state
     timerRunning: false,
     timerStartTime: null,
@@ -96,6 +100,8 @@ const el = {
     distanceValue: document.getElementById('distanceValue'),
     jouleDistanceValue: document.getElementById('jouleDistanceValue'),
     currentLap: document.getElementById('currentLap'),
+    timerDisplay: document.getElementById('timerDisplay'),
+    efficiencyList: document.getElementById('efficiencyList'),
     directionalHelper: document.getElementById('directionalHelper'),
     arrowLeft: document.getElementById('arrowLeft'),
     arrowRight: document.getElementById('arrowRight'),
@@ -282,9 +288,13 @@ function updateTimer() {
     }
 
     const remaining = Math.max(0, state.timerTotalMs - state.timerElapsedMs);
-    const minutes = Math.floor(remaining / 60000);
-    const seconds = Math.floor((remaining % 60000) / 1000);
-    el.timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const minutes = Math.floor(safeNumber(remaining) / 60000);
+    const seconds = Math.floor((safeNumber(remaining) % 60000) / 1000);
+
+    // Only update if timerDisplay element exists
+    if (el.timerDisplay) {
+        el.timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
 }
 
 /* ====== IDLE DETECTION ====== */
@@ -802,11 +812,20 @@ function paint() {
 
 /* ====== UI UPDATE FUNCTIONS ====== */
 
+// Helper function to safely format numbers and prevent NaN display
+function safeNumber(value, defaultValue = 0) {
+    return Number.isFinite(value) ? value : defaultValue;
+}
+
 function updateSpeedometer() {
     // Smooth interpolation for speed (lerp with factor 0.2 for smooth transitions)
     const lerpFactor = 0.2;
-    state.displaySpeed += (state.speed - state.displaySpeed) * lerpFactor;
-    state.displayCurrent += (Math.abs(state.current) - state.displayCurrent) * lerpFactor;
+    state.displaySpeed += (safeNumber(state.speed) - safeNumber(state.displaySpeed)) * lerpFactor;
+    state.displayCurrent += (Math.abs(safeNumber(state.current)) - safeNumber(state.displayCurrent)) * lerpFactor;
+
+    // Ensure display values are never NaN
+    state.displaySpeed = safeNumber(state.displaySpeed);
+    state.displayCurrent = safeNumber(state.displayCurrent);
 
     const speed = Math.round(state.displaySpeed);
     el.speedValue.textContent = speed;
@@ -815,16 +834,16 @@ function updateSpeedometer() {
     const maxSpeed = 50;
     const percentage = Math.min(state.displaySpeed / maxSpeed, 1);
     const offset = 754 - (percentage * 754);
-    el.speedArc.style.strokeDashoffset = offset;
+    el.speedArc.style.strokeDashoffset = safeNumber(offset, 754);
 
-    // Update current display with smooth value
-    el.currentValue.textContent = state.displayCurrent.toFixed(1);
+    // Update current display with smooth value (always show 0.0 instead of NaN)
+    el.currentValue.textContent = safeNumber(state.displayCurrent).toFixed(1);
 
-    // Update GPS distance display
-    el.distanceValue.textContent = state.gpsDistanceKm.toFixed(2);
+    // Update GPS distance display (always show 0.00 instead of NaN)
+    el.distanceValue.textContent = safeNumber(state.gpsDistanceKm).toFixed(2);
 
-    // Update joule meter distance display (from car's odometer data)
-    el.jouleDistanceValue.textContent = state.distKmAbs.toFixed(2);
+    // Update joule meter distance display (always show 0.00 instead of NaN)
+    el.jouleDistanceValue.textContent = safeNumber(state.distKmAbs).toFixed(2);
 }
 
 function updateMap() {
