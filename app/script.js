@@ -27,38 +27,16 @@ let lastGpsPosition = null;
 let lastGpsTime = null;
 let phoneGPSActive = false; // True when phone is publishing GPS backup
 
-/* ====== UNIVERSITY TEST TRACK DATA ====== */
-// Accurate track extracted from Ahmed's December 24th run (1747 GPS points analyzed)
+/* ====== TRACK DATA (Single Lap - 2026 Test Drive) ====== */
+// Single clean lap from 2026 test_drive_1.csv (82 points)
+// Start position: Averaged from 2025 & 2026 data
+// Stop line: Mandatory stop position from 2025 data (382m from start, ~50% of lap)
 const LUSAIL_SHORT = {
-    center: [24.735805, 46.702122], // Track center
-    stopLine: [24.735897, 46.702587], // Start/Stop line (first position)
+    center: [25.488495475, 51.4502024915], // Start position (averaged from both years)
+    stopLine: [25.491879583, 51.450886683], // Mandatory stop line (where car stopped for 4 seconds)
     zoom: 17,
     turns: [],
-    outline: [
-        [24.735834,46.702667],[24.735846,46.70266],[24.735876,46.702641],[24.735901,46.702625],
-        [24.735935,46.70261],[24.735977,46.702591],[24.736002,46.702572],[24.736027,46.702564],
-        [24.736063,46.702534],[24.736074,46.702541],[24.736124,46.702515],[24.736137,46.702507],
-        [24.736172,46.702492],[24.736216,46.702465],[24.736242,46.702454],[24.736267,46.702427],
-        [24.736298,46.702396],[24.736313,46.702381],[24.736322,46.702358],[24.736334,46.702328],
-        [24.73634,46.70229],[24.736334,46.702251],[24.736328,46.702217],[24.736315,46.702183],
-        [24.736307,46.702145],[24.736288,46.702103],[24.73628,46.702068],[24.736263,46.702053],
-        [24.736259,46.70203],[24.736252,46.702003],[24.736229,46.701954],[24.736221,46.701927],
-        [24.736216,46.701916],[24.736202,46.701881],[24.736193,46.701851],[24.736176,46.701817],
-        [24.736176,46.701809],[24.736149,46.701763],[24.736149,46.701733],[24.736132,46.701702],
-        [24.736118,46.701656],[24.736084,46.701618],[24.736067,46.701572],[24.736053,46.70153],
-        [24.73601,46.701508],[24.735981,46.701473],[24.735941,46.701462],[24.735889,46.701454],
-        [24.735843,46.701458],[24.735806,46.701462],[24.735762,46.701462],[24.735726,46.701477],
-        [24.735693,46.701481],[24.735633,46.701481],[24.735598,46.701485],[24.735573,46.701512],
-        [24.735546,46.701519],[24.735512,46.701538],[24.735495,46.70156],[24.735464,46.701595],
-        [24.735453,46.701637],[24.735435,46.701679],[24.735418,46.701706],[24.735399,46.701748],
-        [24.735375,46.701794],[24.735348,46.701843],[24.735334,46.701885],[24.735315,46.701927],
-        [24.735306,46.701965],[24.735293,46.702007],[24.735283,46.702049],[24.735283,46.702114],
-        [24.735283,46.702156],[24.735296,46.702206],[24.735302,46.702251],[24.735319,46.702286],
-        [24.735342,46.702324],[24.735357,46.702362],[24.735384,46.702404],[24.735403,46.702431],
-        [24.735433,46.702458],[24.735466,46.702481],[24.735512,46.702503],[24.735554,46.702522],
-        [24.735596,46.702545],[24.735643,46.702572],[24.735662,46.702595],[24.735693,46.702618],
-        [24.735714,46.702637],[24.735756,46.702671],[24.735775,46.702694],[24.735798,46.702709]
-    ]
+    outline: [[25.488508,51.450085],[25.488522,51.450031],[25.489103,51.449703],[25.489487,51.449459],[25.489933,51.449181],[25.49041,51.448895],[25.49087,51.448616],[25.491228,51.448402],[25.4916,51.448177],[25.491982,51.447956],[25.492393,51.447716],[25.492847,51.447517],[25.493258,51.44762],[25.493477,51.44799],[25.493382,51.448467],[25.493086,51.44891],[25.492733,51.449345],[25.492432,51.449749],[25.492205,51.450089],[25.491951,51.450546],[25.491653,51.450958],[25.491503,51.451488],[25.491356,51.451973],[25.491001,51.452225],[25.490715,51.452602],[25.490423,51.453064],[25.490179,51.453598],[25.489998,51.454205],[25.489935,51.454876],[25.489889,51.455456],[25.489855,51.456108],[25.489893,51.456696],[25.489954,51.457214],[25.490009,51.457687],[25.490063,51.458118],[25.490101,51.458515],[25.490078,51.458893],[25.489925,51.459202],[25.489662,51.459415],[25.489388,51.459595],[25.489166,51.459736],[25.488916,51.459869],[25.488621,51.459946],[25.488298,51.459854],[25.488031,51.459686],[25.487749,51.459503],[25.487413,51.459293],[25.48708,51.458984],[25.486948,51.458527],[25.48704,51.458103],[25.487108,51.457726],[25.487171,51.457417],[25.487246,51.457054],[25.487316,51.456715],[25.487383,51.45639],[25.487419,51.456085],[25.487371,51.455738],[25.487125,51.455475],[25.486776,51.455284],[25.486399,51.455048],[25.485968,51.454792],[25.485529,51.454559],[25.485178,51.454365],[25.484804,51.454159],[25.48448,51.453983],[25.484215,51.453819],[25.484049,51.453583],[25.483971,51.453293],[25.484051,51.452965],[25.484308,51.452705],[25.48457,51.452541],[25.484777,51.452408],[25.485016,51.452259],[25.485346,51.452057],[25.485674,51.451836],[25.486113,51.451565],[25.486551,51.451317],[25.48694,51.451088],[25.48728,51.450874],[25.487589,51.450684],[25.487877,51.45052],[25.488096,51.450382]]
 };
 
 /* ====== STATE ====== */
@@ -144,11 +122,57 @@ function initMap() {
         subdomains: 'abcd'
     }).addTo(map);
 
-    // Draw track outline - thicker and smoother for better visibility
+    // Draw main track outline in orange
     trackPolyline = L.polyline(LUSAIL_SHORT.outline, {
         color: '#ff6b35',
         weight: 8,
         opacity: 0.9,
+        smoothFactor: 2,
+        lineCap: 'round',
+        lineJoin: 'round'
+    }).addTo(map);
+
+    // Find indices closest to start and stop positions
+    const findClosestPointIndex = (targetLat, targetLon) => {
+        let minDist = Infinity;
+        let minIndex = 0;
+        LUSAIL_SHORT.outline.forEach((point, index) => {
+            const dist = Math.sqrt(
+                Math.pow(point[0] - targetLat, 2) +
+                Math.pow(point[1] - targetLon, 2)
+            );
+            if (dist < minDist) {
+                minDist = dist;
+                minIndex = index;
+            }
+        });
+        return minIndex;
+    };
+
+    const startIdx = findClosestPointIndex(LUSAIL_SHORT.center[0], LUSAIL_SHORT.center[1]);
+    const stopIdx = findClosestPointIndex(LUSAIL_SHORT.stopLine[0], LUSAIL_SHORT.stopLine[1]);
+
+    // Draw START POSITION segment (GREEN) - 3 points for seamless blend
+    const startSegmentStart = Math.max(0, startIdx - 1);
+    const startSegmentEnd = Math.min(LUSAIL_SHORT.outline.length - 1, startIdx + 2);
+    const startSegment = LUSAIL_SHORT.outline.slice(startSegmentStart, startSegmentEnd);
+    L.polyline(startSegment, {
+        color: '#00ff00',
+        weight: 9,
+        opacity: 0.95,
+        smoothFactor: 2,
+        lineCap: 'round',
+        lineJoin: 'round'
+    }).addTo(map);
+
+    // Draw STOP LINE segment (RED) - 3 points for seamless blend
+    const stopSegmentStart = Math.max(0, stopIdx - 1);
+    const stopSegmentEnd = Math.min(LUSAIL_SHORT.outline.length - 1, stopIdx + 2);
+    const stopSegment = LUSAIL_SHORT.outline.slice(stopSegmentStart, stopSegmentEnd);
+    L.polyline(stopSegment, {
+        color: '#ff0000',
+        weight: 9,
+        opacity: 0.95,
         smoothFactor: 2,
         lineCap: 'round',
         lineJoin: 'round'
@@ -503,11 +527,7 @@ function activateGPSFallback() {
     console.log("Using phone GPS for: Speed, Position, Laps, Timer");
     console.log("Disabled: Current, Voltage, Power, Energy, Efficiency");
 
-    // Show GPS mode indicator
-    const gpsIndicator = document.getElementById('gpsModeIndicator');
-    if (gpsIndicator) {
-        gpsIndicator.style.display = 'block';
-    }
+    // GPS mode indicator removed - automatic fallback without driver distraction
 
     // Hide current display (no car data available)
     const currentContainer = document.querySelector('.current-container');
@@ -595,8 +615,9 @@ function handleGPSPosition(position) {
 
 function handleGPSError(error) {
     console.error("GPS Error:", error.message);
+    // Silent fallback - no alerts to distract driver
     if (error.code === error.PERMISSION_DENIED) {
-        alert("Please allow GPS access to use fallback mode");
+        console.error("GPS permission denied - fallback mode unavailable");
     }
 }
 
@@ -782,17 +803,22 @@ function paint() {
 /* ====== UI UPDATE FUNCTIONS ====== */
 
 function updateSpeedometer() {
-    const speed = Math.round(state.speed);
+    // Smooth interpolation for speed (lerp with factor 0.2 for smooth transitions)
+    const lerpFactor = 0.2;
+    state.displaySpeed += (state.speed - state.displaySpeed) * lerpFactor;
+    state.displayCurrent += (Math.abs(state.current) - state.displayCurrent) * lerpFactor;
+
+    const speed = Math.round(state.displaySpeed);
     el.speedValue.textContent = speed;
 
     // Update speed arc (circumference = 2πr = 754, max speed 50 km/h)
     const maxSpeed = 50;
-    const percentage = Math.min(speed / maxSpeed, 1);
+    const percentage = Math.min(state.displaySpeed / maxSpeed, 1);
     const offset = 754 - (percentage * 754);
     el.speedArc.style.strokeDashoffset = offset;
 
-    // Update current display
-    el.currentValue.textContent = Math.abs(state.current).toFixed(1);
+    // Update current display with smooth value
+    el.currentValue.textContent = state.displayCurrent.toFixed(1);
 
     // Update GPS distance display
     el.distanceValue.textContent = state.gpsDistanceKm.toFixed(2);

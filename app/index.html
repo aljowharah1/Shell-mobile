@@ -31,10 +31,7 @@
             <div class="left-panel">
                 <div class="track-map-container">
                     <div id="trackMap" class="track-map"></div>
-                    <!-- GPS Fallback Mode Indicator -->
-                    <div id="gpsModeIndicator" style="display: none; position: absolute; top: 50px; left: 12px; background: rgba(255, 140, 0, 0.9); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; z-index: 1000;">
-                        🛰️ GPS MODE (OFFLINE)
-                    </div>
+                    <!-- GPS Fallback Mode Indicator removed - automatic fallback without driver distraction -->
                 </div>
             </div>
 
@@ -104,7 +101,8 @@
                 <div class="lap-container">
                     <div class="lap-section">
                         <span class="lap-label">LAP</span>
-                        <span class="lap-number" id="currentLap">0</span>
+                        <span class="lap-number" id="currentLap">1</span>
+                        <span class="lap-total">/4</span>
                     </div>
                 </div>
 
@@ -116,22 +114,19 @@
                     </div>
                 </div>
 
-                <!-- GPS Distance Display -->
-                <div class="distance-container">
-                    <div class="distance-display">
-                        <span class="distance-value" id="distanceValue">0.00</span>
-                        <span class="distance-unit">KM</span>
-                    </div>
-                    <div class="distance-label">GPS DISTANCE</div>
-                </div>
+                <!-- Timer Panel -->
+                <div class="timer-panel">
+                    <!-- Main Timer Display -->
+                    <div class="timer-display" id="timerDisplay">35:00</div>
+                    <div class="timer-subtitle">Remaining Time</div>
 
-                <!-- Joule Meter Distance Display -->
-                <div class="joule-distance-container">
-                    <div class="joule-distance-display">
-                        <span class="joule-distance-value" id="jouleDistanceValue">0.00</span>
-                        <span class="joule-distance-unit">KM</span>
+                    <!-- Efficiency Per Lap List -->
+                    <div class="efficiency-section">
+                        <div class="efficiency-title">EFFICIENCY PER LAP</div>
+                        <div class="efficiency-list" id="efficiencyList">
+                            <div class="no-efficiency">Waiting for lap data...</div>
+                        </div>
                     </div>
-                    <div class="joule-distance-label">JOULE METER</div>
                 </div>
             </div>
         </div>
