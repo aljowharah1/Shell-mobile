@@ -1,10 +1,25 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/app/$1"
+      "source": "/",
+      "destination": "/app/index.html"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/app/:path*"
     }
   ],
   "cleanUrls": true,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ]
 }
