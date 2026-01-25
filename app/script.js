@@ -12,8 +12,7 @@
 const MQTT_URL = "wss://8fac0c92ea0a49b8b56f39536ba2fd78.s1.eu.hivemq.cloud:8884/mqtt";
 const MQTT_USER = "ShellJM";
 const MQTT_PASS = "psuEcoteam1st";
-const TOPIC = "car/telemetry";
-const GPS_BACKUP_TOPIC = "car/phone_gps"; // Phone publishes GPS backup here
+const TOPIC = "car/telemetry"; // All data (car + phone sensors) goes to this topic
 
 const TRACK_LAP_KM = 1.5;  // University test track (estimated)
 const PACKET_MIN_MS = 16;   // ~60 FPS UI update rate for ultra-smooth real-time response
@@ -26,6 +25,21 @@ let gpsWatchId = null;
 let lastGpsPosition = null;
 let lastGpsTime = null;
 let phoneGPSActive = false; // True when phone is publishing GPS backup
+
+// IMU Data Collection
+let imuActive = false; // True when IMU data collection is active
+let imuAltitudeWatchId = null; // Watch ID for altitude tracking
+let lastIMUPublishTime = 0; // Throttle IMU publishing
+const IMU_PUBLISH_INTERVAL_MS = 100; // Publish IMU data every 100ms (10Hz)
+
+// IMU-based Elevation Tracking (high precision for small changes)
+let lastIMUTime = null;
+let verticalVelocity = 0; // m/s - integrated from acceleration
+let imuElevationChange = 0; // meters - integrated from velocity
+let imuElevationOffset = 0; // Calibration offset when GPS is available
+const VELOCITY_DECAY = 0.98; // Decay factor to reduce drift (applied each update)
+const ACCEL_THRESHOLD = 0.05; // m/s² - ignore tiny accelerations (noise filter)
+const FUSION_GPS_WEIGHT = 0.1; // How much to trust GPS vs IMU (0.1 = 10% GPS, 90% IMU)
 
 /* ====== TRACK DATA (Single Lap - 2026 Test Drive) ====== */
 // Single clean lap from 2026 test_drive_1.csv (82 points)
@@ -89,7 +103,26 @@ const state = {
     lastPaintMs: 0,
 
     // Turn detection
-    currentTurn: null
+    currentTurn: null,
+
+    // Elevation tracking (GPS-based)
+    currentAltitude: null,      // Current altitude in meters (GPS)
+    startAltitude: null,        // Starting altitude (first reading)
+    minAltitude: null,          // Minimum altitude recorded
+    maxAltitude: null,          // Maximum altitude recorded
+    elevationGain: 0,           // Total meters climbed
+    elevationLoss: 0,           // Total meters descended
+    lastAltitude: null,         // Previous altitude for calculating changes
+    elevationProfile: [],       // Array of {distance, altitude} for graphing
+
+    // IMU-based elevation tracking (high precision)
+    imuAltitude: 0,             // IMU-calculated altitude change from start
+    imuAltitudeFused: 0,        // Fused GPS + IMU altitude
+    imuMinAltitude: 0,          // Min altitude from IMU
+    imuMaxAltitude: 0,          // Max altitude from IMU
+    imuElevationGain: 0,        // Total climb from IMU (more precise)
+    imuElevationLoss: 0,        // Total descent from IMU (more precise)
+    lastImuAltitude: 0          // Previous IMU altitude for change detection
 };
 
 /* ====== DOM ELEMENTS ====== */
@@ -358,7 +391,8 @@ function checkLapCompletion() {
         }
 
         // Efficiency: km/kWh = Distance (km) / Energy (kWh)
-        const efficiency = energyKwhSinceLapStart > 0 ? (distSinceLapStart / energyKwhSinceLapStart) : 0;
+        // Multiply by 0.9 to account for joule meter's 90% accuracy
+        const efficiency = energyKwhSinceLapStart > 0 ? (distSinceLapStart / energyKwhSinceLapStart) * 0.9 : 0;
 
         console.log(`[LAP DEBUG] Total Energy: ${state.energyWhAbs.toFixed(2)} Wh, Lap Start Energy: ${state.lapStartEnergy.toFixed(2)} Wh`);
         console.log(`[LAP DEBUG] Total Dist: ${state.distKmAbs.toFixed(3)} km, Lap Start Dist: ${state.lapStartDist.toFixed(3)} km`);
@@ -465,7 +499,7 @@ function startPhoneGPSBackup() {
         return;
     }
 
-    console.log("📱 Starting phone GPS backup - will publish to MQTT topic:", GPS_BACKUP_TOPIC);
+    console.log("📱 Starting phone GPS backup - will publish to MQTT topic:", TOPIC);
 
     // Start watching GPS position
     gpsWatchId = navigator.geolocation.watchPosition(
@@ -510,7 +544,7 @@ function publishPhoneGPS(position) {
 
     // Publish to MQTT
     if (client && client.connected) {
-        client.publish(GPS_BACKUP_TOPIC, JSON.stringify(gpsBackup), { qos: 0 }, (err) => {
+        client.publish(TOPIC, JSON.stringify(gpsBackup), { qos: 0 }, (err) => {
             if (err) {
                 console.error("Failed to publish phone GPS:", err);
             } else {
@@ -628,6 +662,275 @@ function handleGPSError(error) {
     // Silent fallback - no alerts to distract driver
     if (error.code === error.PERMISSION_DENIED) {
         console.error("GPS permission denied - fallback mode unavailable");
+    }
+}
+
+/* ====== IMU DATA COLLECTION (iPhone Sensors) ====== */
+function startIMUCollection() {
+    if (imuActive) return; // Already active
+
+    console.log("📱 Starting iPhone IMU data collection");
+    console.log("📱 Will publish to MQTT topic:", TOPIC);
+
+    // Request device motion permission (required on iOS 13+)
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission()
+            .then(permissionState => {
+                if (permissionState === 'granted') {
+                    window.addEventListener('devicemotion', handleDeviceMotion);
+                    imuActive = true;
+                    console.log("✅ IMU motion sensors activated");
+                } else {
+                    console.warn("⚠️ Device motion permission denied");
+                }
+            })
+            .catch(err => {
+                console.error("❌ Error requesting device motion permission:", err);
+            });
+    } else {
+        // No permission required (older iOS or Android)
+        window.addEventListener('devicemotion', handleDeviceMotion);
+        imuActive = true;
+        console.log("✅ IMU motion sensors activated");
+    }
+
+    // Start altitude tracking via GPS (altitude is included in geolocation data)
+    if (navigator.geolocation) {
+        imuAltitudeWatchId = navigator.geolocation.watchPosition(
+            handleAltitudeUpdate,
+            handleAltitudeError,
+            {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 5000
+            }
+        );
+        console.log("✅ Altitude tracking activated");
+    } else {
+        console.warn("⚠️ Geolocation not available - altitude data will not be collected");
+    }
+}
+
+function stopIMUCollection() {
+    if (!imuActive) return;
+
+    window.removeEventListener('devicemotion', handleDeviceMotion);
+    imuActive = false;
+
+    if (imuAltitudeWatchId !== null) {
+        navigator.geolocation.clearWatch(imuAltitudeWatchId);
+        imuAltitudeWatchId = null;
+    }
+
+    console.log("📱 IMU data collection stopped");
+}
+
+// Store latest altitude data
+let latestAltitude = null;
+let latestAltitudeAccuracy = null;
+
+function handleAltitudeUpdate(position) {
+    // Extract altitude (elevation) from GPS position
+    if (position.coords.altitude !== null) {
+        const altitude = position.coords.altitude; // meters above sea level
+        latestAltitude = altitude;
+        latestAltitudeAccuracy = position.coords.altitudeAccuracy || null;
+
+        // Update state
+        state.currentAltitude = altitude;
+
+        // Set start altitude on first reading
+        if (state.startAltitude === null) {
+            state.startAltitude = altitude;
+            state.minAltitude = altitude;
+            state.maxAltitude = altitude;
+            state.lastAltitude = altitude;
+            console.log(`[ELEVATION] Start altitude set: ${altitude.toFixed(1)}m`);
+        }
+
+        // Update min/max
+        if (altitude < state.minAltitude) {
+            state.minAltitude = altitude;
+        }
+        if (altitude > state.maxAltitude) {
+            state.maxAltitude = altitude;
+        }
+
+        // Calculate elevation change (only if we have a previous reading)
+        if (state.lastAltitude !== null) {
+            const change = altitude - state.lastAltitude;
+
+            // Use a threshold to filter GPS noise (ignore changes < 0.5m)
+            if (Math.abs(change) > 0.5) {
+                if (change > 0) {
+                    state.elevationGain += change;
+                } else {
+                    state.elevationLoss += Math.abs(change);
+                }
+                state.lastAltitude = altitude;
+            }
+        }
+
+        // Add to elevation profile (for graphing later)
+        state.elevationProfile.push({
+            distance: state.gpsDistanceKm,
+            altitude: altitude
+        });
+
+        // Keep profile to last 1000 points
+        if (state.elevationProfile.length > 1000) {
+            state.elevationProfile.shift();
+        }
+        // Note: Elevation data is published as part of unified phone sensor data in handleDeviceMotion
+    }
+}
+
+function handleAltitudeError(error) {
+    console.warn("Altitude tracking error:", error.message);
+}
+
+function handleDeviceMotion(event) {
+    const now = Date.now();
+
+    // Calculate time delta for integration
+    const dt = lastIMUTime ? (now - lastIMUTime) / 1000 : 0; // seconds
+    lastIMUTime = now;
+
+    // Get vertical acceleration (Y-axis for phone mounted flat in landscape at 90°)
+    // Phone orientation: flat, screen up, rotated 90° (landscape) - Y-axis is forward/back of car
+    // When car goes uphill/downhill, the Y-axis tilts, detecting elevation change
+    let verticalAccel = 0;
+    if (event.acceleration && event.acceleration.y !== null) {
+        verticalAccel = event.acceleration.y;
+    }
+
+    // Apply noise threshold - ignore tiny accelerations
+    if (Math.abs(verticalAccel) < ACCEL_THRESHOLD) {
+        verticalAccel = 0;
+    }
+
+    // Integrate acceleration to get velocity
+    if (dt > 0 && dt < 0.5) { // Ignore if dt is too large (app was paused)
+        verticalVelocity += verticalAccel * dt;
+
+        // Apply velocity decay to reduce drift
+        verticalVelocity *= VELOCITY_DECAY;
+
+        // Integrate velocity to get position change
+        const elevationDelta = verticalVelocity * dt;
+        imuElevationChange += elevationDelta;
+
+        // Update state
+        state.imuAltitude = imuElevationChange + imuElevationOffset;
+
+        // Fuse with GPS altitude when available (complementary filter)
+        if (state.currentAltitude !== null && state.startAltitude !== null) {
+            const gpsRelativeAlt = state.currentAltitude - state.startAltitude;
+            // Slowly blend IMU towards GPS to correct drift
+            state.imuAltitudeFused = state.imuAltitude * (1 - FUSION_GPS_WEIGHT) + gpsRelativeAlt * FUSION_GPS_WEIGHT;
+
+            // Periodically recalibrate IMU offset to reduce drift
+            imuElevationOffset += (gpsRelativeAlt - state.imuAltitude) * 0.01;
+        } else {
+            state.imuAltitudeFused = state.imuAltitude;
+        }
+
+        // Track min/max from IMU
+        if (state.imuAltitudeFused < state.imuMinAltitude) {
+            state.imuMinAltitude = state.imuAltitudeFused;
+        }
+        if (state.imuAltitudeFused > state.imuMaxAltitude) {
+            state.imuMaxAltitude = state.imuAltitudeFused;
+        }
+
+        // Track elevation gain/loss from IMU (more precise for small changes)
+        const imuChange = state.imuAltitudeFused - state.lastImuAltitude;
+        if (Math.abs(imuChange) > 0.05) { // 5cm threshold for IMU
+            if (imuChange > 0) {
+                state.imuElevationGain += imuChange;
+            } else {
+                state.imuElevationLoss += Math.abs(imuChange);
+            }
+            state.lastImuAltitude = state.imuAltitudeFused;
+        }
+    }
+
+    // Throttle MQTT publishing
+    if (now - lastIMUPublishTime < IMU_PUBLISH_INTERVAL_MS) {
+        return;
+    }
+    lastIMUPublishTime = now;
+
+    // Calculate GPS relative altitude
+    const gpsRelativeAlt = state.startAltitude !== null && state.currentAltitude !== null
+        ? state.currentAltitude - state.startAltitude
+        : 0;
+
+    // Unified phone sensor data - all in one clean message
+    const phoneSensorData = {
+        source: "phone",
+        timestamp: now,
+
+        // Acceleration data (m/s²)
+        accel: event.acceleration ? {
+            x: parseFloat((event.acceleration.x || 0).toFixed(4)),
+            y: parseFloat((event.acceleration.y || 0).toFixed(4)),
+            z: parseFloat((event.acceleration.z || 0).toFixed(4))
+        } : null,
+
+        // Rotation rate (deg/s)
+        gyro: event.rotationRate ? {
+            alpha: parseFloat((event.rotationRate.alpha || 0).toFixed(2)),
+            beta: parseFloat((event.rotationRate.beta || 0).toFixed(2)),
+            gamma: parseFloat((event.rotationRate.gamma || 0).toFixed(2))
+        } : null,
+
+        // GPS data
+        gps: {
+            lat: state.lat,
+            lon: state.lon,
+            altitude_m: latestAltitude ? parseFloat(latestAltitude.toFixed(2)) : null,
+            altitude_rel_m: parseFloat(gpsRelativeAlt.toFixed(2)),
+            accuracy_m: latestAltitudeAccuracy ? parseFloat(latestAltitudeAccuracy.toFixed(1)) : null,
+            distance_km: parseFloat(state.gpsDistanceKm.toFixed(3))
+        },
+
+        // Elevation tracking
+        elevation: {
+            // GPS-based (less precise but no drift)
+            gps_gain_m: parseFloat(state.elevationGain.toFixed(2)),
+            gps_loss_m: parseFloat(state.elevationLoss.toFixed(2)),
+            gps_min_m: state.minAltitude ? parseFloat(state.minAltitude.toFixed(2)) : null,
+            gps_max_m: state.maxAltitude ? parseFloat(state.maxAltitude.toFixed(2)) : null,
+
+            // IMU-based (more precise for small changes)
+            imu_rel_m: parseFloat(state.imuAltitudeFused.toFixed(3)),
+            imu_gain_m: parseFloat(state.imuElevationGain.toFixed(3)),
+            imu_loss_m: parseFloat(state.imuElevationLoss.toFixed(3)),
+            imu_min_m: parseFloat(state.imuMinAltitude.toFixed(3)),
+            imu_max_m: parseFloat(state.imuMaxAltitude.toFixed(3)),
+            imu_range_m: parseFloat((state.imuMaxAltitude - state.imuMinAltitude).toFixed(3)),
+            velocity_ms: parseFloat(verticalVelocity.toFixed(4))
+        }
+    };
+
+    // Publish to MQTT
+    publishPhoneSensorData(phoneSensorData);
+}
+
+function publishPhoneSensorData(data) {
+    if (client && client.connected) {
+        client.publish(TOPIC, JSON.stringify(data), { qos: 0 }, (err) => {
+            if (err) {
+                console.error("Failed to publish phone sensor data:", err);
+            }
+            // Uncomment for debugging (will log frequently):
+            // else {
+            //     console.log("📊 Phone sensor data published");
+            // }
+        });
+    } else {
+        console.warn("⚠️ MQTT not connected, cannot publish IMU data");
     }
 }
 
@@ -897,6 +1200,38 @@ function startSimulation() {
     }, 200);
 }
 
+/* ====== ALTITUDE TRACKING ====== */
+let altitudeWatchId = null;
+
+function startAltitudeTracking() {
+    if (altitudeWatchId !== null) return; // Already tracking
+
+    if (!navigator.geolocation) {
+        console.warn("⚠️ Geolocation not available - altitude tracking disabled");
+        return;
+    }
+
+    console.log("📍 Starting altitude/elevation tracking");
+
+    altitudeWatchId = navigator.geolocation.watchPosition(
+        handleAltitudeUpdate,
+        handleAltitudeError,
+        {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 10000
+        }
+    );
+}
+
+function stopAltitudeTracking() {
+    if (altitudeWatchId !== null) {
+        navigator.geolocation.clearWatch(altitudeWatchId);
+        altitudeWatchId = null;
+        console.log("📍 Altitude tracking stopped");
+    }
+}
+
 /* ====== INITIALIZATION ====== */
 document.addEventListener('DOMContentLoaded', () => {
     console.log("🏁 PSU Racing Dashboard - Mobile (Enhanced)");
@@ -915,4 +1250,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial render
     requestFrame();
+
+    // Start continuous timer update (every 100ms for smooth countdown)
+    setInterval(() => {
+        updateTimer();
+    }, 100);
+
+    // Start continuous map update (every 100ms to ensure marker moves smoothly)
+    setInterval(() => {
+        updateMap();
+    }, 100);
+
+    // Start altitude/elevation tracking (GPS-based)
+    startAltitudeTracking();
+
+    // Start IMU collection for high-precision elevation (accelerometer-based)
+    // Note: On iOS 13+, this requires user interaction to request permission
+    // The permission request will be triggered on first user tap
+    document.body.addEventListener('click', () => {
+        if (!imuActive) {
+            startIMUCollection();
+        }
+    }, { once: true });
+
+    // Handle Page Visibility API - continue running when app is in background
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            console.log("📱 App in background - timer and efficiency tracking continue");
+        } else {
+            console.log("📱 App in foreground - full functionality active");
+            // Force a full UI update when returning to foreground
+            requestFrame();
+        }
+    });
 });
